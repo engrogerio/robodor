@@ -1,0 +1,11 @@
+passwd.json
+
+robo.log
+
+counter.txt
+
+/__pycache__/*
+
+/.robodor/*
+
+/temp_pdf

@@ -12,7 +12,7 @@ import smtplib, ssl
 import logging
 import json
 
-with open('passwd.json', 'r') as f:
+with open('/home/ubuntu/invent/robodor/passwd.json', 'r') as f:
     config = json.load(f)
 
 logging.basicConfig(filename='/home/ubuntu/invent/robodor/robo.log', format='%(asctime)s %(message)s', level=logging.WARNING)
@@ -25,7 +25,7 @@ def send_mail(email, link):
     smtp_server = "smtp.gmail.com"
     sender_email = "eng.rogerio@gmail.com"  # Enter your address
     receiver_email = email  # Enter receiver address
-    password = config["password"]
+    password ="kdhsykfkbgvqrytf" #config["password"]
     message = """\
 Subject: Voce foi nomeado para o cargo de Escrevente 
         
@@ -45,11 +45,14 @@ def days_between(d1, d2):
     return np.busday_count(d1, d2)
 
 def get_nu_diario():
-    today = dt.today().strftime("%Y-%m-%d") 
-    # nuDiario = 2820 is from 2019-05-31 (Friday)
-    # It increments Mon through Fri.
-    nu_diario = days_between('2019-05-31', today)  + 2820 - 1
-    return nu_diario
+    file = '/home/ubuntu/invent/robodor/counter.txt'
+    nu_diario = open (file)
+    return nu_diario.readline().rstrip()
+
+def increment_nu_diario():
+    counter = get_nu_diario()
+    with open('/home/ubuntu/invent/robodor/counter.txt', 'w') as f:  
+        f.write(str(int(counter)+1))
 
 def pdf_to_text(path):
     manager = PDFResourceManager()
@@ -123,6 +126,9 @@ def start():
                 logging.warning("Last page was scrapped: %s" % page)
                 logging.warning("Job finished in %s seconds. See you tomorrow !" % (time.time() - start_total))
                 print("Job finished in %s seconds" % (time.time() - start_total))
+                increment_nu_diario()
+                logging.warning("Tomorrow will search on DO %s" % get_nu_diario())
+
             else:
                 logging.warning("It looks like there is no DO issue today. Try tomorrow")
             break
