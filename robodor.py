@@ -11,28 +11,24 @@ import numpy as np
 import smtplib, ssl
 import logging
 import json
-import dotenv
+import os
 
 
-with open('/home/ubuntu/invent/robodor/passwd.json', 'r') as f:
+BASE_DIR = os. getcwd() 
+
+with open(os.path.join(BASE_DIR, 'config.json'), 'r') as f:
     config = json.load(f)
 
-logging.basicConfig(filename='/home/ubuntu/invent/robodor/robo.log', format='%(asctime)s %(message)s', level=logging.WARNING)
-dotenv.load()
+logging.basicConfig(filename=os.path.join(BASE_DIR, 'robo.log'), format='%(asctime)s %(message)s', level=logging.INFO)
 
-def send_mail(email, link):
+def send_mail(email, message):
     # https://realpython.com/python-send-email/
     sent = True
     port = 465  # For SSL
-    smtp_server = "smtp.gmail.com"
-    sender_email = "eng.rogerio@gmail.com"  # Enter your address
-    receiver_email = email  # Enter receiver address
-    password =os.getenv(GMAIL_SMTP,'') #config["password"]
-    message = """\
-Subject: Voce foi nomeado para o cargo de Escrevente 
-        
-Leo, consulte a sua nomeacao no link do Diario Oficial abaixo: \n %s \n 
-\n P A R A B E N S !!! \n \n Mensagem enviada pelo Robodor.""" % link
+    smtp_server = config['smtp_server']
+    sender_email = config['sender_email']  
+    password = config['password']
+    receiver_email = email
 
     context = ssl.create_default_context()
     try:
@@ -47,13 +43,13 @@ def days_between(d1, d2):
     return np.busday_count(d1, d2)
 
 def get_nu_diario():
-    file = '/home/ubuntu/invent/robodor/counter.txt'
+    file = os.path.join(BASE_DIR, 'counter.txt')
     nu_diario = open (file)
     return nu_diario.readline().rstrip()
 
 def increment_nu_diario():
     counter = get_nu_diario()
-    with open('/home/ubuntu/invent/robodor/counter.txt', 'w') as f:  
+    with open(os.path.join(BASE_DIR, 'counter.txt'), 'w') as f:  
         f.write(str(int(counter)+1))
 
 def pdf_to_text(path):
@@ -84,52 +80,46 @@ def get_pdf_file(url, tmp_file_path):
     return exists
 
 def start():
-    logging.warning("***** ROBODOR STARTING @ %s - DO number %s ******" % (datetime.datetime.now(), get_nu_diario()))
-    print("***** ROBODOR STARTING @ %s - DO number %s ******" % (datetime.datetime.now(), get_nu_diario()))
+    logging.info("***** ROBODOR STARTING @ %s - DO number %s ******" % (datetime.datetime.now(), get_nu_diario()))
     start_total = time.time()
     nu_diario = get_nu_diario()
     page = 0
+
+    with open(os.path.join(BASE_DIR, 'tasks.json'), 'r') as f:
+        tasks = json.load(f)
     while True:
         page = page + 1
         url='https://dje.tjsp.jus.br/cdje/getPaginaDoDiario.do?cdVolume=13&nuDiario=%s&cdCaderno=10&nuSeqpagina=%s' %(nu_diario, page) 
-        path ='/home/ubuntu/invent/robodor/temp_pdf/do_%s.pdf'% (nu_diario)
-        email = 'lglopesp@gmail.com.br'
+        path = os.path.join(BASE_DIR, 'do_%s.pdf'% (nu_diario))
         start_download = time.time()
-        logging.warning("Downloading page %s" % page)
-        print("Downloading page %s..." %page)
+        logging.info("Downloading page %s" % page)
         has_content = get_pdf_file(url, path)
-        logging.warning("page %s takes %s seconds" %(page, time.time()-start_download))
+        logging.info("page %s took %s seconds" %(page, time.time()-start_download))
 
         if has_content:
             text = str(pdf_to_text(path), encoding = 'utf-8')
-            search_string = 'Leonardo Gurgel Lopes Pereira'
-            start_search = time.time()
-            logging.warning('Searching page %s' % page)
-            print("Searching page...")
-            if search_string in text:
-
-                logging.warning("Search takes %s seconds" % (time.time() - start_search))
-                logging.warning("######## STRING FOUND #########")
-                logging.warning("### Sending email ###")
-                s = send_mail(email, url)
-                if s:
-                    logging.warning("Email Sent !")
-                    logging.warning("### Robodor mission complete ###")
+            for task in tasks.items(): 
+                search_string = task['name']
+                start_search = time.time()
+                logging.info('Searching page %s' % page)
+                if search_string in text:
+                    logging.info("Search took %s seconds" % (time.time() - start_search))
+                    logging.info("######## STRING FOUND #########")
+                    logging.info("### Sending email ###")
+                    s = send_mail(email, f'Nome: {search_string} foi encontrado no DO: {url}' )
+                    if s:
+                        logging.info("Email Sent !")
+                        logging.info("### Robodor mission complete ###")
+                    else:
+                        logging.warning("Oops...For some reason, the email was not sent... sorry :-(")
                 else:
-                    logging.warning("Oops...For some reason, the email was not sent... sorry :-(")
-                # Turn off crontab
-                break
-
-            else:
-                logging.warning("String not found :-( Search takes %s seconds." %(time.time() - start_search))
-                print("String not found.")
+                    logging.info(f"String not found on page {page} Search took %s seconds." %(time.time() - start_search))
         else:
             if page > 1:
-                logging.warning("Last page was scrapped: %s" % page)
-                logging.warning("Job finished in %s seconds. See you tomorrow !" % (time.time() - start_total))
-                print("Job finished in %s seconds" % (time.time() - start_total))
+                logging.info("Last page was scrapped: %s" % page)
+                logging.info("Job finished in %s seconds. See you tomorrow !" % (time.time() - start_total))
                 increment_nu_diario()
-                logging.warning("Tomorrow will search on DO %s" % get_nu_diario())
+                logging.info("Tomorrow will search on DO %s" % get_nu_diario())
 
             else:
                 logging.warning("It looks like there is no DO issue today. Try tomorrow")
