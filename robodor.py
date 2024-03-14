@@ -11,12 +11,14 @@ import numpy as np
 import smtplib, ssl
 import logging
 import json
+import dotenv
+
 
 with open('/home/ubuntu/invent/robodor/passwd.json', 'r') as f:
     config = json.load(f)
 
 logging.basicConfig(filename='/home/ubuntu/invent/robodor/robo.log', format='%(asctime)s %(message)s', level=logging.WARNING)
-
+dotenv.load()
 
 def send_mail(email, link):
     # https://realpython.com/python-send-email/
@@ -25,7 +27,7 @@ def send_mail(email, link):
     smtp_server = "smtp.gmail.com"
     sender_email = "eng.rogerio@gmail.com"  # Enter your address
     receiver_email = email  # Enter receiver address
-    password ="kdhsykfkbgvqrytf" #config["password"]
+    password =os.getenv(GMAIL_SMTP,'') #config["password"]
     message = """\
 Subject: Voce foi nomeado para o cargo de Escrevente 
         
