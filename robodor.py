@@ -43,14 +43,8 @@ def days_between(d1, d2):
     return np.busday_count(d1, d2)
 
 def get_nu_diario():
-    file = os.path.join(BASE_DIR, 'counter.txt')
-    nu_diario = open (file)
-    return nu_diario.readline().rstrip()
-
-def increment_nu_diario():
-    counter = get_nu_diario()
-    with open(os.path.join(BASE_DIR, 'counter.txt'), 'w') as f:  
-        f.write(str(int(counter)+1))
+    #return dt.now().strftime("%Y%m%d")
+    return '20240314'
 
 def pdf_to_text(path):
     manager = PDFResourceManager()
@@ -83,46 +77,40 @@ def start():
     logging.info("***** ROBODOR STARTING @ %s - DO number %s ******" % (datetime.datetime.now(), get_nu_diario()))
     start_total = time.time()
     nu_diario = get_nu_diario()
-    page = 0
+    print("********", nu_diario)
 
     with open(os.path.join(BASE_DIR, 'tasks.json'), 'r') as f:
         tasks = json.load(f)
-    while True:
-        page = page + 1
-        url='https://dje.tjsp.jus.br/cdje/getPaginaDoDiario.do?cdVolume=13&nuDiario=%s&cdCaderno=10&nuSeqpagina=%s' %(nu_diario, page) 
-        path = os.path.join(BASE_DIR, 'do_%s.pdf'% (nu_diario))
-        start_download = time.time()
-        logging.info("Downloading page %s" % page)
-        has_content = get_pdf_file(url, path)
-        logging.info("page %s took %s seconds" %(page, time.time()-start_download))
+    
+    url = f'https://www.imprensaoficial.com.br/downloads/pdf/edicao/{nu_diario}LG.pdf'
+    # url='https://dje.tjsp.jus.br/cdje/getPaginaDoDiario.do?cdVolume=13&nuDiario=%s&cdCaderno=10&nuSeqpagina=%s' %(nu_diario, page) 
+    path = os.path.join(BASE_DIR, f'do_{nu_diario}.pdf')
+    start_download = time.time()
+    logging.info(f'Downloading document from {url}')
+    has_content = get_pdf_file(url, path)
+    logging.info('Document took %s seconds' %(time.time()-start_download))
 
-        if has_content:
-            text = str(pdf_to_text(path), encoding = 'utf-8')
-            for task in tasks.items(): 
-                search_string = task['name']
-                start_search = time.time()
-                logging.info('Searching page %s' % page)
-                if search_string in text:
-                    logging.info("Search took %s seconds" % (time.time() - start_search))
-                    logging.info("######## STRING FOUND #########")
-                    logging.info("### Sending email ###")
-                    s = send_mail(email, f'Nome: {search_string} foi encontrado no DO: {url}' )
-                    if s:
-                        logging.info("Email Sent !")
-                        logging.info("### Robodor mission complete ###")
-                    else:
-                        logging.warning("Oops...For some reason, the email was not sent... sorry :-(")
+    if has_content:
+        text = str(pdf_to_text(path), encoding = 'utf-8')
+        for task in tasks['buscas']: 
+            print(task)
+            search_string = task['name']
+            email = task['email']
+            start_search = time.time()
+            logging.info('Searching document {nu_diario}')
+            if search_string in text:
+                logging.info("Search took %s seconds" % (time.time() - start_search))
+                logging.info("######## STRING FOUND #########")
+                logging.info("### Sending email ###")
+                s = send_mail(email, f'Nome: {search_string} foi encontrado no DO: {url}' )
+                if s:
+                    logging.info("Email Sent !")
+                    logging.info("### Robodor mission complete ###")
                 else:
-                    logging.info(f"String not found on page {page} Search took %s seconds." %(time.time() - start_search))
-        else:
-            if page > 1:
-                logging.info("Last page was scrapped: %s" % page)
-                logging.info("Job finished in %s seconds. See you tomorrow !" % (time.time() - start_total))
-                increment_nu_diario()
-                logging.info("Tomorrow will search on DO %s" % get_nu_diario())
-
+                    logging.warning("Oops...For some reason, the email was not sent... sorry :-(")
             else:
-                logging.warning("It looks like there is no DO issue today. Try tomorrow")
-            break
+                logging.info(f'String not found on document from {nu_diario}. Search took {time.time() - start_search} seconds.')
+    else:
+        logging.warning("It looks like there is no DO issue today. Try tomorrow")
 
 start()
