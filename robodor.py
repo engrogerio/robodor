@@ -35,7 +35,9 @@ def send_mail(email, message):
         with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
             server.login(sender_email, password)
             server.sendmail(sender_email, receiver_email, message)
-    except:
+    except Exception as ex:
+        logger.error(ex)
+        print(ex)
         sent = False
     return sent
 
@@ -92,12 +94,13 @@ def start():
 
     if has_content:
         text = str(pdf_to_text(path), encoding = 'utf-8')
+        print(text)
         for task in tasks['buscas']: 
             print(task)
             search_string = task['name']
             email = task['email']
             start_search = time.time()
-            logging.info('Searching document {nu_diario}')
+            logging.info(f'Searching {task["name"]} on document {nu_diario}')
             if search_string in text:
                 logging.info("Search took %s seconds" % (time.time() - start_search))
                 logging.info("######## STRING FOUND #########")
@@ -113,4 +116,6 @@ def start():
     else:
         logging.warning("It looks like there is no DO issue today. Try tomorrow")
 
-start()
+if __name__ == '__main__':
+    start()
+
