@@ -53,8 +53,7 @@ def send_mail(email, message):
     return sent
 
 def get_nu_diario():
-    #return dt.now().strftime("%Y%m%d")
-    return '20240314'
+    return dt.now().strftime("%Y%m%d")
 
 def pdf_to_text(path):
     manager = PDFResourceManager()
@@ -103,7 +102,14 @@ def start():
     logging.info('Document took %s seconds' %(time.time()-start_download))
 
     if has_content:
-        text = str(pdf_to_text(path), encoding = 'utf-8')
+        try:
+            text = str(pdf_to_text(path), encoding = 'utf-8')
+        except Exception as ex:
+            logger.info(f'DO for today ({dt.now()}) was not found! Leaving for today...')
+            logger.info(ex)
+            # remove local pdf file
+            os.remove(path)
+            return
         for task in tasks: 
             search_string = task['name']
             email = task['email']
@@ -123,6 +129,9 @@ def start():
                 logging.info(f'String not found on document from {nu_diario}. Search took {time.time() - start_search} seconds.')
     else:
         logging.warning("It looks like there is no DO issue today. Try tomorrow")
+    
+    # remove local pdf file
+    os.remove(path)
 
 if __name__ == '__main__':
     start()
