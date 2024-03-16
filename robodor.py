@@ -12,6 +12,7 @@ import smtplib, ssl
 import logging
 import json
 import os
+from email.message import EmailMessage
 
 
 BASE_DIR = os. getcwd() 
@@ -21,28 +22,35 @@ with open(os.path.join(BASE_DIR, 'config.json'), 'r') as f:
 
 logging.basicConfig(filename=os.path.join(BASE_DIR, 'robo.log'), format='%(asctime)s %(message)s', level=logging.INFO)
 
+logger = logging.getLogger(__name__)
+
 def send_mail(email, message):
     # https://realpython.com/python-send-email/
+
     sent = True
     port = 465  # For SSL
     smtp_server = config['smtp_server']
     sender_email = config['sender_email']  
     password = config['password']
     receiver_email = email
+    
+    msg = EmailMessage()
+    msg.set_content(message)
 
+    msg['Subject'] = 'Email do Robô do Diário Oficial'
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+
+    logger.info(f'Sending email to {email} with text {message}')
     context = ssl.create_default_context()
     try:
         with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
             server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message)
+            server.send_message(msg)
     except Exception as ex:
         logger.error(ex)
-        print(ex)
         sent = False
     return sent
-
-def days_between(d1, d2):
-    return np.busday_count(d1, d2)
 
 def get_nu_diario():
     #return dt.now().strftime("%Y%m%d")
@@ -75,14 +83,16 @@ def get_pdf_file(url, tmp_file_path):
         exists = True
     return exists
 
+def load_task_data():
+    with open('tasks.json', "r") as file:
+        data = [json.loads(line.strip()) for line in file if line.strip()]
+    return data
+
 def start():
     logging.info("***** ROBODOR STARTING @ %s - DO number %s ******" % (datetime.datetime.now(), get_nu_diario()))
     start_total = time.time()
     nu_diario = get_nu_diario()
-    print("********", nu_diario)
-
-    with open(os.path.join(BASE_DIR, 'tasks.json'), 'r') as f:
-        tasks = json.load(f)
+    tasks = load_task_data()
     
     url = f'https://www.imprensaoficial.com.br/downloads/pdf/edicao/{nu_diario}LG.pdf'
     # url='https://dje.tjsp.jus.br/cdje/getPaginaDoDiario.do?cdVolume=13&nuDiario=%s&cdCaderno=10&nuSeqpagina=%s' %(nu_diario, page) 
@@ -94,9 +104,7 @@ def start():
 
     if has_content:
         text = str(pdf_to_text(path), encoding = 'utf-8')
-        print(text)
-        for task in tasks['buscas']: 
-            print(task)
+        for task in tasks: 
             search_string = task['name']
             email = task['email']
             start_search = time.time()
