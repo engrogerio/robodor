@@ -15,7 +15,7 @@ import os
 from email.message import EmailMessage
 
 
-BASE_DIR = os. getcwd() 
+BASE_DIR = '/root/robodor' 
 
 with open(os.path.join(BASE_DIR, 'config.json'), 'r') as f:
     config = json.load(f)
@@ -83,7 +83,7 @@ def get_pdf_file(url, tmp_file_path):
     return exists
 
 def load_task_data():
-    with open('tasks.json', "r") as file:
+    with open(os.path.join(BASE_DIR, 'tasks.json'), "r") as file:
         data = [json.loads(line.strip()) for line in file if line.strip()]
     return data
 
